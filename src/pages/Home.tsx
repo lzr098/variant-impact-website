@@ -22,6 +22,9 @@ import {
   XCircle,
   AlertTriangle,
   Info,
+  Sparkles,
+  Shield,
+  Microscope,
 } from "lucide-react";
 
 const ACMG_CLASS_COLORS: Record<string, string> = {
@@ -59,6 +62,88 @@ const CLINVAR_CLASS_MAP: Record<string, string> = {
   "Likely benign": "可能良性",
   Benign: "良性",
 };
+
+// ── SO consequence terms 中文映射 ──
+const CONSEQ_MAP: Record<string, string> = {
+  missense_variant: "错义突变",
+  stop_gained: "无义突变（终止密码子获得）",
+  frameshift_variant: "移码突变",
+  splice_donor_variant: "剪接供体位点变异",
+  splice_acceptor_variant: "剪接受体位点变异",
+  splice_region_variant: "剪接区域变异",
+  start_lost: "起始密码子丢失",
+  stop_lost: "终止密码子丢失",
+  inframe_insertion: "框内插入",
+  inframe_deletion: "框内缺失",
+  synonymous_variant: "同义突变",
+  "5_prime_UTR_variant": "5' UTR 变异",
+  "3_prime_UTR_variant": "3' UTR 变异",
+  intron_variant: "内含子变异",
+  intergenic_variant: "基因间区变异",
+  upstream_gene_variant: "基因上游变异",
+  downstream_gene_variant: "基因下游变异",
+  coding_sequence_variant: "编码序列变异",
+  non_coding_transcript_exon_variant: "非编码转录本外显子变异",
+};
+
+// ── UniProt feature types 中文映射 ──
+const FEATURE_TYPE_MAP: Record<string, string> = {
+  Chain: "成熟肽链",
+  "Peptide chain": "肽链",
+  Domain: "结构域",
+  "DNA-binding region": "DNA结合区",
+  Region: "功能区域",
+  "Zinc finger region": "锌指区域",
+  "Compositional bias": "组成偏倚区",
+  "Binding site": "结合位点",
+  "Active site": "活性位点",
+  "Metal binding": "金属离子结合位点",
+  Site: "功能位点",
+  "Modified residue": "翻译后修饰残基",
+  Lipidation: "脂修饰",
+  Glycosylation: "糖基化位点",
+  "Disulfide bond": "二硫键",
+  "Cross-link": "交联",
+  "Transit peptide": "转运肽",
+  "Signal peptide": "信号肽",
+  Propeptide: "前肽",
+  "Transmembrane region": "跨膜区",
+  "Intramembrane region": "膜内区",
+  Repeat: "重复序列",
+  Motif: "基序",
+  Coiled_coil: "卷曲螺旋",
+  Helix: "螺旋结构",
+  Turn: "转角结构",
+  "Beta strand": "β链",
+  Topological_domain: "拓扑结构域",
+};
+
+function formatConsequence(terms: string[] | undefined): string {
+  if (!terms || terms.length === 0) return "N/A";
+  return terms
+    .slice(0, 3)
+    .map((t) => CONSEQ_MAP[t] || t)
+    .join(" / ");
+}
+
+function getProteinDisplay(
+  protein: string | undefined,
+  aminoAcids: string | undefined,
+  proteinStart: number | undefined
+): string {
+  if (protein) return protein;
+  // Fallback: build from amino_acids + protein_position
+  // amino_acids format: "A/T" (single-letter ref/alt)
+  if (aminoAcids && proteinStart) {
+    const parts = aminoAcids.split("/");
+    if (parts.length === 2) {
+      return `p.${parts[0]}${proteinStart}${parts[1]} (推断)`;
+    }
+    return `${aminoAcids} @ ${proteinStart}`;
+  }
+  if (aminoAcids) return aminoAcids;
+  return "N/A";
+}
 
 export default function Home() {
   const [variantInput, setVariantInput] = useState("");
@@ -108,7 +193,85 @@ export default function Home() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Input Section */}
+        {/* ── Hero / Introduction ── */}
+        {!result && !analyze.isPending && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+              <CardContent className="pt-5 pb-4">
+                <Microscope className="w-8 h-8 text-blue-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  功能预测
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  整合 SIFT、PolyPhen、AlphaMissense、CADD、REVEL、SpliceAI
+                  等多种预测工具，全面评估变异对蛋白功能的影响
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100">
+              <CardContent className="pt-5 pb-4">
+                <Database className="w-8 h-8 text-emerald-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  多数据源查询
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  自动查询 gnomAD 人群频率、ClinVar 临床注释、UniProt
+                  蛋白信息、Europe PMC 文献等权威数据库
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
+              <CardContent className="pt-5 pb-4">
+                <Shield className="w-8 h-8 text-amber-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  ACMG 自动分级
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  基于 ACMG-AMP 2015
+                  指南，自动应用证据规则，生成功能权重评分与致病性分级报告
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Supported formats */}
+            <Card className="md:col-span-3">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <h3 className="font-semibold text-sm text-slate-700">
+                    支持的输入格式
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                    <span className="text-slate-400">标准格式</span>
+                    <p className="text-slate-700 mt-0.5">chr11:121567110:C:G</p>
+                  </div>
+                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                    <span className="text-slate-400">显示格式</span>
+                    <p className="text-slate-700 mt-0.5">
+                      chr11:121567110 C&gt;G
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                    <span className="text-slate-400">HGVS</span>
+                    <p className="text-slate-700 mt-0.5">
+                      11:g.121567110C&gt;G
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                    <span className="text-slate-400">rsID / NM_</span>
+                    <p className="text-slate-700 mt-0.5">
+                      rs755753065 / NM_000384.3:c.9412C&gt;G
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* ── Input Section ── */}
         <Card className="shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -241,7 +404,9 @@ export default function Home() {
               <CardContent className="pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="space-y-1">
-                    <p className="text-sm text-slate-500">输入: {result.variant.raw}</p>
+                    <p className="text-sm text-slate-500">
+                      输入: {result.variant.raw}
+                    </p>
                     <p className="font-mono text-lg font-semibold text-slate-900">
                       {result.variant.hgvs_g}
                     </p>
@@ -252,7 +417,9 @@ export default function Home() {
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <div className="text-sm text-slate-500 mb-1">ACMG 分类</div>
+                    <div className="text-sm text-slate-500 mb-1">
+                      ACMG 分类
+                    </div>
                     {getClassBadge(result.acmg.classification)}
                   </div>
                 </div>
@@ -274,14 +441,18 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">蛋白变异</p>
-                    <p className="font-semibold text-slate-800">
-                      {result.vep.protein ?? "N/A"}
+                    <p className="font-semibold text-slate-800 text-xs">
+                      {getProteinDisplay(
+                        result.vep.protein,
+                        result.vep.amino_acids,
+                        result.vep.protein_start
+                      )}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">变异后果</p>
                     <p className="font-semibold text-slate-800 text-xs">
-                      {(result.vep.consequence_terms ?? []).slice(0, 2).join(", ") || "N/A"}
+                      {formatConsequence(result.vep.consequence_terms)}
                     </p>
                   </div>
                 </div>
@@ -440,9 +611,7 @@ export default function Home() {
                                     : "text-green-600"
                                 }`}
                               >
-                                {result.vep.revel > 0.5
-                                  ? "致病性"
-                                  : "良性"}
+                                {result.vep.revel > 0.5 ? "致病性" : "良性"}
                               </td>
                               <td className="py-2">
                                 {result.vep.revel.toFixed(4)}
@@ -496,9 +665,7 @@ export default function Home() {
                                     : "text-green-600"
                                 }`}
                               >
-                                {result.eve.score > 0.5
-                                  ? "致病性"
-                                  : "良性"}
+                                {result.eve.score > 0.5 ? "致病性" : "良性"}
                               </td>
                               <td className="py-2">
                                 {result.eve.score.toFixed(4)}
@@ -596,8 +763,12 @@ export default function Home() {
                                   <td className="py-2 pr-4 font-medium">
                                     gnomAD {label}
                                   </td>
-                                  <td className="py-2 pr-4">{g.ac ?? "—"}</td>
-                                  <td className="py-2 pr-4">{g.an ?? "—"}</td>
+                                  <td className="py-2 pr-4">
+                                    {g.ac ?? "—"}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    {g.an ?? "—"}
+                                  </td>
                                   <td className="py-2">
                                     {g.af != null ? (
                                       <span
@@ -623,7 +794,6 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* VEP frequencies */}
                     {result.vep.gnomad_frequencies &&
                       Object.keys(result.vep.gnomad_frequencies).length > 0 && (
                         <div className="bg-slate-50 rounded-lg p-4">
@@ -648,7 +818,6 @@ export default function Home() {
                         </div>
                       )}
 
-                    {/* GTEx */}
                     {result.vep.gtex_expression &&
                       Object.keys(result.vep.gtex_expression).length > 0 && (
                         <div className="bg-slate-50 rounded-lg p-4">
@@ -748,7 +917,7 @@ export default function Home() {
                 </Card>
               </TabsContent>
 
-              {/* Protein */}
+              {/* Protein — with Chinese feature types */}
               <TabsContent value="protein">
                 <Card>
                   <CardHeader>
@@ -767,7 +936,7 @@ export default function Home() {
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <InfoRow
-                            label="UniProt Accession"
+                            label="UniProt 编号"
                             value={result.uniprot.accession}
                           />
                           <InfoRow
@@ -778,30 +947,37 @@ export default function Home() {
                             label="蛋白长度"
                             value={
                               result.uniprot.protein_length
-                                ? `${result.uniprot.protein_length} aa`
+                                ? `${result.uniprot.protein_length} 个氨基酸`
                                 : undefined
                             }
                           />
                           <InfoRow
                             label="数据来源"
-                            value={result.uniprot.source}
+                            value={
+                              result.uniprot.source === "uniprot_api"
+                                ? "UniProt API"
+                                : result.uniprot.source
+                            }
                           />
                         </div>
                         {result.uniprot.function && (
                           <div className="mt-3 bg-slate-50 rounded-lg p-3">
-                            <p className="text-sm font-medium text-slate-700 mb-1">
+                            <p className="text-sm font-semibold text-slate-700 mb-1">
                               功能描述
                             </p>
                             <p className="text-sm text-slate-600 leading-relaxed">
                               {result.uniprot.function}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-2 italic">
+                              （原文来自 UniProt，英文）
                             </p>
                           </div>
                         )}
                         {result.uniprot.features_near_variant &&
                           result.uniprot.features_near_variant.length > 0 && (
                             <div className="mt-3">
-                              <p className="text-sm font-medium text-slate-700 mb-2">
-                                变异附近的结构特征
+                              <p className="text-sm font-semibold text-slate-700 mb-2">
+                                变异附近的蛋白结构特征
                               </p>
                               <div className="space-y-1">
                                 {result.uniprot.features_near_variant.map(
@@ -812,14 +988,14 @@ export default function Home() {
                                     >
                                       <Badge
                                         variant="secondary"
-                                        className="text-xs"
+                                        className="text-xs shrink-0"
                                       >
-                                        {f.type}
+                                        {FEATURE_TYPE_MAP[f.type] ?? f.type}
                                       </Badge>
                                       <span className="text-slate-600">
                                         {f.description}
                                       </span>
-                                      <span className="text-xs text-slate-400">
+                                      <span className="text-xs text-slate-400 shrink-0">
                                         [{f.start}-{f.end}]
                                       </span>
                                     </div>
@@ -1033,9 +1209,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="text-center text-xs text-slate-400 pt-8 pb-4">
           <p>GRCh38 Variant Impact Analyzer · ACMG-AMP 2015</p>
-          <p className="mt-1">
-            本报告仅供研究参考，不可作为临床诊断依据
-          </p>
+          <p className="mt-1">本报告仅供研究参考，不可作为临床诊断依据</p>
         </footer>
       </main>
     </div>
