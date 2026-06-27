@@ -96,12 +96,29 @@ function parseQcFields(fields: string[], startIdx: number): Record<string, strin
   return qc;
 }
 
+/**
+ * Smart variant parser — handles many real-world input formats.
+ *
+ * Supported formats:
+ *   chr:pos:ref:alt          → chr11:121567110:C:G
+ *   chr:pos ref>alt          → chr11:121567110 C>G        (common display format)
+ *   chr pos ref alt          → chr11 121567110 C G
+ *   chr pos ref>alt          → chr11 121567110 C>G
+ *   chr:g.posref>alt         → chr11:g.121567110C>G       (HGVS)
+ *   chr:g.pos ref>alt        → chr11:g.121567110 C>G
+ *   pos:ref:alt (no chr)     → 121567110:C:G
+ *   pos ref>alt (no chr)     → 121567110 C>G
+ *   VCF tab-separated
+ *   rsID
+ *   NM_:c.
+ */
 export function parseVariant(variantStr: string): Variant {
-  variantStr = variantStr.trim();
+  let s = variantStr.trim();
+  if (!s) throw new Error("Empty variant string");
 
-  // VCF-style tab-separated
-  if (variantStr.includes("\t")) {
-    const parts = variantStr.split("\t");
+  // ── 1. VCF tab-separated ──
+  if (s.includes("\t")) {
+    const parts = s.split("\t");
     if (parts.length >= 4) {
       const chrom = normalizeChrom(parts[0]!);
       const pos = parseInt(parts[1]!, 10);
@@ -109,82 +126,82 @@ export function parseVariant(variantStr: string): Variant {
       const ref = (parts[3] ?? "").toUpperCase();
       const alt = (parts[4] ?? ".").toUpperCase();
       const qc = parseQcFields(parts, 5);
-      return {
-        raw: variantStr,
-        chrom,
-        pos,
-        ref,
-        alt,
-        hgvs_g: `${chrom}:g.${pos}${ref}>${alt}`,
-        qc,
-      };
+      return { raw: variantStr, chrom, pos, ref, alt, hgvs_g: `${chrom}:g.${pos}${ref}>${alt}`, qc };
     }
   }
 
-  // rsID
-  if (variantStr.toLowerCase().startsWith("rs")) {
-    return {
-      raw: variantStr,
-      chrom: "",
-      pos: 0,
-      ref: "",
-      alt: "",
-      rsid: variantStr.toLowerCase(),
-      hgvs_g: "",
-    };
+  // ── 2. rsID ──
+  if (s.toLowerCase().startsWith("rs")) {
+    return { raw: variantStr, chrom: "", pos: 0, ref: "", alt: "", rsid: s.toLowerCase(), hgvs_g: "" };
   }
 
-  // HGVS genomic: 2:g.21007456G>C
-  const hgvsMatch = variantStr.match(/^(chr)?([0-9XYMTxymt]+):g\.(\d+)([ACGTNacgtn]+)>([ACGTNacgtn]+)$/);
-  if (hgvsMatch) {
-    const chrom = normalizeChrom(hgvsMatch[2]!);
-    const pos = parseInt(hgvsMatch[3]!, 10);
-    const ref = hgvsMatch[4]!.toUpperCase();
-    const alt = hgvsMatch[5]!.toUpperCase();
-    return {
-      raw: variantStr,
-      chrom,
-      pos,
-      ref,
-      alt,
-      hgvs_g: `${chrom}:g.${pos}${ref}>${alt}`,
-    };
+  // ── 3. NM_:c. coding HGVS ──
+  if (/^NM_\d+\.\d+:c\./.test(s)) {
+    return { raw: variantStr, chrom: "", pos: 0, ref: "", alt: "", hgvs_g: s };
   }
 
-  // chrom:pos:ref:alt (colon or space separated)
-  if (variantStr.includes(":")) {
-    const parts = variantStr.replace(/:/g, " ").split(/\s+/);
-    if (parts.length >= 4) {
-      const chrom = normalizeChrom(parts[0]!);
-      const pos = parseInt(parts[1]!, 10);
-      const ref = parts[2]!.toUpperCase();
-      const alt = parts[3]!.toUpperCase();
-      return {
-        raw: variantStr,
-        chrom,
-        pos,
-        ref,
-        alt,
-        hgvs_g: `${chrom}:g.${pos}${ref}>${alt}`,
-      };
+  // ── 4. Strict HGVS: (chr)N:g.12345A>C ──
+  const strictHgvs = s.match(/^(chr)?([0-9XYMTxymt]+):g\.(\d+)([ACGTNacgtn]+)>([ACGTNacgtn]+)$/);
+  if (strictHgvs) {
+    const chrom = normalizeChrom(strictHgvs[2]!);
+    const pos = parseInt(strictHgvs[3]!, 10);
+    const ref = strictHgvs[4]!.toUpperCase();
+    const alt = strictHgvs[5]!.toUpperCase();
+    return { raw: variantStr, chrom, pos, ref, alt, hgvs_g: `${chrom}:g.${pos}${ref}>${alt}` };
+  }
+
+  // ── 5. Generic smart parser ──
+  // Normalize: collapse all whitespace to single spaces, keep colons
+  s = s.replace(/\s+/g, " ");
+
+  // Handle "ref>alt" notation — split it so > becomes a word boundary
+  // e.g. "C>G" → "C G"
+  s = s.replace(/>/g, " ");
+
+  // Now split by both colon and space
+  const tokens = s.split(/[:\s]+/).filter(Boolean);
+
+  if (tokens.length >= 4) {
+    // Format: [chr] [pos] [ref] [alt]
+    const chrom = normalizeChrom(tokens[0]!);
+    const pos = parseInt(tokens[1]!, 10);
+    const ref = tokens[2]!.toUpperCase();
+    const alt = tokens[3]!.toUpperCase();
+    if (!isNaN(pos) && /^[ACGTN]+$/i.test(ref) && /^[ACGTN]+$/i.test(alt)) {
+      return { raw: variantStr, chrom, pos, ref, alt, hgvs_g: `${chrom}:g.${pos}${ref}>${alt}` };
     }
   }
 
-  // HGVS coding
-  const codingMatch = variantStr.match(/^(NM_[0-9]+\.[0-9]+):c\.(.+)$/);
-  if (codingMatch) {
-    return {
-      raw: variantStr,
-      chrom: "",
-      pos: 0,
-      ref: "",
-      alt: "",
-      hgvs_g: variantStr,
-    };
+  if (tokens.length === 3) {
+    // Could be: [pos] [ref] [alt]  (missing chr)
+    // Or: [chr:g.] [pos] [ref] [alt] but got merged
+    const t0 = tokens[0]!;
+    const t1 = tokens[1]!;
+    const t2 = tokens[2]!;
+
+    // If first token ends with ":g" or ".g", strip it
+    const cleaned0 = t0.replace(/:g\.?$/, "").replace(/\.g\.?$/, "");
+
+    if (/^[0-9XYMTxymt]+$/i.test(cleaned0)) {
+      // [chr-ish] [pos] [ref/alt]
+      const chrom = normalizeChrom(cleaned0);
+      const pos = parseInt(t1, 10);
+      if (!isNaN(pos) && /^[ACGTN]+$/i.test(t2)) {
+        // ref alt separately or ref>alt
+        return { raw: variantStr, chrom, pos, ref: t2.toUpperCase(), alt: "", hgvs_g: `${chrom}:g.${pos}${t2.toUpperCase()}>`, qc: {} };
+      }
+    }
+
+    // Maybe it's just pos ref alt without chr
+    const pos = parseInt(t0, 10);
+    if (!isNaN(pos) && /^[ACGTN]+$/i.test(t1) && /^[ACGTN]+$/i.test(t2)) {
+      return { raw: variantStr, chrom: "", pos, ref: t1.toUpperCase(), alt: t2.toUpperCase(), hgvs_g: "" };
+    }
   }
 
   throw new Error(
-    `Unsupported variant format: "${variantStr}". Expected: chr:pos:ref:alt, HGVS (e.g. 2:g.21007456G>C), rsID, NM_:c., or VCF tab-separated`
+    `Unsupported variant format: "${variantStr}". ` +
+    `Expected: chr:pos:ref:alt, chr:pos ref>alt, HGVS (e.g. chr11:g.121567110C>G), rsID, NM_:c., or VCF tab-separated`
   );
 }
 
