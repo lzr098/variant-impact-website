@@ -193,85 +193,7 @@ export default function Home() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* ── Hero / Introduction ── */}
-        {!result && !analyze.isPending && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
-              <CardContent className="pt-5 pb-4">
-                <Microscope className="w-8 h-8 text-blue-600 mb-3" />
-                <h3 className="font-semibold text-slate-800 mb-1">
-                  功能预测
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  整合 SIFT、PolyPhen、AlphaMissense、CADD、REVEL、SpliceAI
-                  等多种预测工具，全面评估变异对蛋白功能的影响
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100">
-              <CardContent className="pt-5 pb-4">
-                <Database className="w-8 h-8 text-emerald-600 mb-3" />
-                <h3 className="font-semibold text-slate-800 mb-1">
-                  多数据源查询
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  自动查询 gnomAD 人群频率、ClinVar 临床注释、UniProt
-                  蛋白信息、Europe PMC 文献等权威数据库
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
-              <CardContent className="pt-5 pb-4">
-                <Shield className="w-8 h-8 text-amber-600 mb-3" />
-                <h3 className="font-semibold text-slate-800 mb-1">
-                  ACMG 自动分级
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  基于 ACMG-AMP 2015
-                  指南，自动应用证据规则，生成功能权重评分与致病性分级报告
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Supported formats */}
-            <Card className="md:col-span-3">
-              <CardContent className="pt-4 pb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-blue-600" />
-                  <h3 className="font-semibold text-sm text-slate-700">
-                    支持的输入格式
-                  </h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
-                    <span className="text-slate-400">标准格式</span>
-                    <p className="text-slate-700 mt-0.5">chr11:121567110:C:G</p>
-                  </div>
-                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
-                    <span className="text-slate-400">显示格式</span>
-                    <p className="text-slate-700 mt-0.5">
-                      chr11:121567110 C&gt;G
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
-                    <span className="text-slate-400">HGVS</span>
-                    <p className="text-slate-700 mt-0.5">
-                      11:g.121567110C&gt;G
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 rounded px-3 py-2 font-mono">
-                    <span className="text-slate-400">rsID / NM_</span>
-                    <p className="text-slate-700 mt-0.5">
-                      rs755753065 / NM_000384.3:c.9412C&gt;G
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* ── Input Section ── */}
+        {/* ── 1. Input (always top) ── */}
         <Card className="shadow-md">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
@@ -382,6 +304,86 @@ export default function Home() {
             </form>
           </CardContent>
         </Card>
+
+        {/* ── 2. Supported formats (when no result) ── */}
+        {!result && !analyze.isPending && (
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <h3 className="font-semibold text-sm text-slate-700">
+                  支持的输入格式
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                  <span className="text-slate-400">标准格式</span>
+                  <p className="text-slate-700 mt-0.5">chr11:121567110:C:G</p>
+                </div>
+                <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                  <span className="text-slate-400">显示格式</span>
+                  <p className="text-slate-700 mt-0.5">
+                    chr11:121567110 C&gt;G
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                  <span className="text-slate-400">HGVS</span>
+                  <p className="text-slate-700 mt-0.5">
+                    11:g.121567110C&gt;G
+                  </p>
+                </div>
+                <div className="bg-slate-50 rounded px-3 py-2 font-mono">
+                  <span className="text-slate-400">rsID / NM_</span>
+                  <p className="text-slate-700 mt-0.5">
+                    rs755753065 / NM_000384.3:c.9412C&gt;G
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── 3. Feature cards (when no result) ── */}
+        {!result && !analyze.isPending && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+              <CardContent className="pt-5 pb-4">
+                <Microscope className="w-8 h-8 text-blue-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  功能预测
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  整合 SIFT、PolyPhen、AlphaMissense、CADD、REVEL、SpliceAI
+                  等多种预测工具，全面评估变异对蛋白功能的影响
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100">
+              <CardContent className="pt-5 pb-4">
+                <Database className="w-8 h-8 text-emerald-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  多数据源查询
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  自动查询 gnomAD 人群频率、ClinVar 临床注释、UniProt
+                  蛋白信息、Europe PMC 文献等权威数据库
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
+              <CardContent className="pt-5 pb-4">
+                <Shield className="w-8 h-8 text-amber-600 mb-3" />
+                <h3 className="font-semibold text-slate-800 mb-1">
+                  ACMG 自动分级
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  基于 ACMG-AMP 2015
+                  指南，自动应用证据规则，生成功能权重评分与致病性分级报告
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
