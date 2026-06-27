@@ -1,12 +1,9 @@
 import { createRouter, publicQuery } from "./middleware";
+import { variantRouter } from "./routers/variant";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
-
-  // TODO: add feature routers here, e.g.
-  // todo: createRouter({
-  //   list: publicQuery.query(() => findTodos()),
-  // }),
+  variant: variantRouter,
 });
 
 export type AppRouter = typeof appRouter;
