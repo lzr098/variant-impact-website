@@ -273,6 +273,7 @@ export async function queryVep(variant: Variant): Promise<{ vep: VepResult; upda
     input: updated.raw,
     rsid,
     gene_symbol: transcript?.gene_symbol,
+    gene_id: transcript?.gene_id,
     transcript: transcript?.transcript_id,
     cdna,
     protein,
@@ -287,7 +288,7 @@ export async function queryVep(variant: Variant): Promise<{ vep: VepResult; upda
     spliceai: extractSpliceai(transcript),
     revel: extractRevel(transcript),
     gnomad_frequencies: extractFrequencies(top),
-    gtex_expression: extractGtex(transcript),
+    gtex_expression: undefined, // Will be filled by queryGtex
     all_transcript_consequences: top.transcript_consequences,
   };
 
@@ -371,24 +372,47 @@ function extractFrequencies(top: any): Record<string, number> | undefined {
   return Object.keys(result).length ? result : undefined;
 }
 
-function extractGtex(tc: any): Record<string, number> | undefined {
-  if (!tc) return undefined;
-  const gtex = tc.gtex_gene_tpm;
-  if (!gtex) return undefined;
-  if (typeof gtex === "object") {
-    const result: Record<string, number> = {};
-    for (const [k, v] of Object.entries(gtex)) {
-      const n = typeof v === "string" ? parseFloat(v) : typeof v === "number" ? v : NaN;
-      if (!isNaN(n)) result[k] = n;
-    }
-    return Object.keys(result).length ? result : undefined;
-  }
-  return undefined;
-}
-
 function extractHgvs(tc: any): [string | undefined, string | undefined] {
   if (!tc) return [undefined, undefined];
   return [tc.hgvsc, tc.hgvsp];
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GTEx Portal API v2
+// ═══════════════════════════════════════════════════════════════════
+
+export async function queryGtex(geneId: string | undefined): Promise<Record<string, number> | undefined> {
+  if (!geneId) return undefined;
+  // Strip version suffix if present
+  const baseId = geneId.split(".")[0];
+
+  // Try multiple gencodeId formats
+  const idsToTry = [baseId, geneId];
+  for (const gid of idsToTry) {
+    for (const dataset of ["gtex_v8", "gtex_v10"]) {
+      try {
+        const res = await fetch(
+          `https://gtexportal.org/api/v2/expression/medianGeneExpression?gencodeId=${encodeURIComponent(gid)}&datasetId=${dataset}`,
+          { headers: { "Content-Type": "application/json" }, signal: AbortSignal.timeout(15000) }
+        );
+        if (res.status === 200) {
+          const json = await res.json() as { data?: Array<{ tissueSiteDetailId: string; median: number }> };
+          if (json.data && json.data.length > 0) {
+            const result: Record<string, number> = {};
+            for (const item of json.data) {
+              if (item.tissueSiteDetailId && item.median != null) {
+                result[item.tissueSiteDetailId] = item.median;
+              }
+            }
+            return Object.keys(result).length > 0 ? result : undefined;
+          }
+        }
+      } catch {
+        // Try next format
+      }
+    }
+  }
+  return undefined;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -606,7 +630,7 @@ export async function queryUniprot(
     protein_name: fullData.proteinDescription?.recommendedName?.fullName?.value,
     protein_name_cn: translateProteinName(fullData.proteinDescription?.recommendedName?.fullName?.value),
     function: funcText,
-    function_cn: translateFunction(funcText),
+    function_summary_cn: generateFunctionSummary(funcText),
     tissue_specificity: tissueSpec,
     features_near_variant: featuresNear,
     source: "uniprot_api",
@@ -661,107 +685,126 @@ function translateProteinName(name: string | undefined): string | undefined {
   return result;
 }
 
-function translateFunction(func: string | undefined): string | undefined {
+/**
+ * Generate a concise Chinese summary of the protein function.
+ * Uses sentence-pattern matching + term annotation instead of word-by-word translation.
+ * Proper nouns and abbreviations are kept in English.
+ */
+function generateFunctionSummary(func: string | undefined): string | undefined {
   if (!func || func.length < 10) return undefined;
-  // High-frequency scientific term dictionary
-  const dict: Record<string, string> = {
-    "acts as a": "作为",
-    "functions as a": "功能是作为",
-    "functions as": "功能为",
-    "plays a role": "发挥作用",
-    "plays a critical role": "发挥关键作用",
-    "plays an essential role": "发挥 essential 作用",
-    "plays an important role": "发挥重要作用",
-    "is required for": "对...是必需的",
-    "is essential for": "对...是 essential 的",
-    "is involved in": "参与",
-    "participates in": "参与",
-    "regulates": "调控",
-    "negatively regulates": "负向调控",
-    "positively regulates": "正向调控",
-    "modulates": "调节",
-    "catalyzes": "催化",
-    "promotes": "促进",
-    "inhibits": "抑制",
-    "mediates": "介导",
-    "induces": "诱导",
-    "binds to": "结合于",
-    "interacts with": "与...相互作用",
-    "degrades": "降解",
-    "stabilizes": "稳定化",
-    "ubiquitin": "泛素",
-    "ubiquitination": "泛素化",
-    "phosphorylation": "磷酸化",
-    "dephosphorylation": "去磷酸化",
-    "methylation": "甲基化",
-    "acetylation": "乙酰化",
-    "sumoylation": "SUMO 化",
-    "proteasome": "蛋白酶体",
-    "autophagy": "自噬",
-    "apoptosis": "细胞凋亡",
-    "cell proliferation": "细胞增殖",
-    "cell differentiation": "细胞分化",
-    "cell cycle": "细胞周期",
-    "cell migration": "细胞迁移",
+
+  // Extract key process/system terms
+  const termDict: Record<string, string> = {
+    "DNA mismatch repair": "DNA 错配修复",
+    "mismatch repair": "错配修复",
+    "base excision repair": "碱基切除修复",
+    "nucleotide excision repair": "核苷酸切除修复",
+    "homologous recombination": "同源重组",
+    "non-homologous end joining": "非同源末端连接",
+    "double-strand break repair": "双链断裂修复",
+    "post-replicative": "复制后",
+    "cell cycle checkpoint": "细胞周期检查点",
+    "G2/M transition": "G2/M 转换",
     "signal transduction": "信号转导",
     "signaling pathway": "信号通路",
+    "Wnt signaling": "Wnt 信号通路",
+    "MAPK signaling": "MAPK 信号通路",
+    "PI3K-Akt signaling": "PI3K-Akt 信号通路",
+    "p53 signaling": "p53 信号通路",
+    "Notch signaling": "Notch 信号通路",
     "immune response": "免疫应答",
     "inflammatory response": "炎症反应",
-    "DNA repair": "DNA 修复",
-    "DNA damage": "DNA 损伤",
-    "transcription": "转录",
-    "translation": "翻译",
-    "splicing": "剪接",
-    "receptor": "受体",
-    "kinase": "激酶",
-    "phosphatase": "磷酸酶",
-    "ligase": "连接酶",
-    "protease": "蛋白酶",
-    "endonuclease": "核酸内切酶",
-    "exonuclease": "核酸外切酶",
-    "polymerase": "聚合酶",
-    "synthase": "合成酶",
-    "dehydrogenase": "脱氢酶",
-    "reductase": "还原酶",
-    "transferase": "转移酶",
-    "hydrolase": "水解酶",
-    "isomerase": "异构酶",
-    "protein-protein interaction": "蛋白-蛋白相互作用",
-    "gene expression": "基因表达",
+    "innate immunity": "先天性免疫",
+    "adaptive immunity": "适应性免疫",
+    "antigen presentation": "抗原呈递",
+    "T cell": "T 细胞",
+    "B cell": "B 细胞",
+    "apoptotic process": "细胞凋亡过程",
+    "apoptosis": "细胞凋亡",
+    "autophagy": "自噬",
+    "cell proliferation": "细胞增殖",
+    "cell differentiation": "细胞分化",
+    "cell migration": "细胞迁移",
+    "cell adhesion": "细胞粘附",
     "chromatin remodeling": "染色质重塑",
     "histone modification": "组蛋白修饰",
-    "membrane protein": "膜蛋白",
-    "secreted protein": "分泌蛋白",
-    "nuclear protein": "核蛋白",
-    "cytoplasmic protein": "胞质蛋白",
-    "mitochondrial": "线粒体",
-    "endoplasmic reticulum": "内质网",
-    "Golgi apparatus": "高尔基体",
-    "lysosome": "溶酶体",
-    "peroxisome": "过氧化物酶体",
-    "tumor": "肿瘤",
-    "cancer": "癌症",
-    "oncogene": "癌基因",
-    "oncogenic": "致癌性的",
+    "transcriptional regulation": "转录调控",
+    "post-translational modification": "翻译后修饰",
+    "protein ubiquitination": "蛋白泛素化",
+    "protein phosphorylation": "蛋白磷酸化",
+    "protein degradation": "蛋白降解",
+    "protein stabilization": "蛋白稳定化",
     "tumorigenesis": "肿瘤发生",
-    "metastasis": "转移",
+    "tumor suppression": "肿瘤抑制",
+    "metastasis": "肿瘤转移",
+    "angiogenesis": "血管生成",
     "neurodegeneration": "神经退行性变",
-    "cardiovascular disease": "心血管疾病",
-    "metabolic disorder": "代谢疾病",
-    "development": "发育",
-    "embryonic development": "胚胎发育",
+    "synaptic transmission": "突触传递",
+    "muscle contraction": "肌肉收缩",
+    "metabolism": "代谢",
+    "lipid metabolism": "脂质代谢",
+    "glucose metabolism": "葡萄糖代谢",
+    "energy metabolism": "能量代谢",
   };
 
-  let result = func;
-  // Replace phrase-by-phrase (longer first)
-  const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  // Collect all matched terms
+  const matchedTerms: Array<{ en: string; cn: string }> = [];
+  const seen = new Set<string>();
+  const sortedKeys = Object.keys(termDict).sort((a, b) => b.length - a.length);
   for (const key of sortedKeys) {
-    const re = new RegExp(`\\b${key}\\b`, "gi");
-    result = result.replace(re, dict[key]!);
+    if (func.toLowerCase().includes(key.toLowerCase()) && !seen.has(key.toLowerCase())) {
+      seen.add(key.toLowerCase());
+      matchedTerms.push({ en: key, cn: termDict[key]! });
+    }
   }
-  // If less than 30% was translated, don't use it
-  const changed = result !== func;
-  return changed ? result : undefined;
+
+  if (matchedTerms.length === 0) return undefined;
+
+  // Build summary with pattern matching
+  const f = func.toLowerCase();
+  const sentences: string[] = [];
+
+  // Determine the main role
+  let mainRole = "";
+  if (f.includes("component of") || f.includes("part of")) {
+    mainRole = `该蛋白为 ${matchedTerms[0].cn} 的组成部分`;
+  } else if (f.includes("catalyzes") || f.includes("catalytic")) {
+    mainRole = `该蛋白催化 ${matchedTerms[0].cn} 过程`;
+  } else if (f.includes("regulates") || f.includes("regulator")) {
+    mainRole = `该蛋白调控 ${matchedTerms[0].cn}`;
+  } else if (f.includes("binds") || f.includes("binding")) {
+    mainRole = `该蛋白结合 ${matchedTerms[0].cn} 相关分子`;
+  } else if (f.includes("mediates")) {
+    mainRole = `该蛋白介导 ${matchedTerms[0].cn}`;
+  } else if (f.includes("promotes") || f.includes("induces")) {
+    mainRole = `该蛋白促进 ${matchedTerms[0].cn}`;
+  } else if (f.includes("inhibits") || f.includes("represses")) {
+    mainRole = `该蛋白抑制 ${matchedTerms[0].cn}`;
+  } else if (f.includes("required for") || f.includes("essential for")) {
+    mainRole = `该蛋白对 ${matchedTerms[0].cn} 是必需的`;
+  } else if (f.includes("plays a role") || f.includes("involved in")) {
+    mainRole = `该蛋白参与 ${matchedTerms[0].cn}`;
+  } else {
+    mainRole = `该蛋白在 ${matchedTerms[0].cn} 中发挥作用`;
+  }
+  sentences.push(mainRole);
+
+  // Add secondary processes
+  if (matchedTerms.length > 1) {
+    const secondary = matchedTerms.slice(1, 3);
+    sentences.push(`同时参与 ${secondary.map((t) => t.cn).join("、")}`);
+  }
+
+  // Add functional impact
+  if (f.includes("genome stability") || f.includes("genomic stability")) {
+    sentences.push("在维持基因组稳定性中发挥关键作用");
+  } else if (f.includes("tumor suppressor") || f.includes("tumorigenesis")) {
+    sentences.push("在肿瘤抑制中发挥重要作用");
+  } else if (f.includes("essential")) {
+    sentences.push("该功能对细胞正常生理活动至关重要");
+  }
+
+  return sentences.join("，") + "。";
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1296,7 +1339,13 @@ export async function analyzeVariant(
 
   const geneSymbol = vep.gene_symbol;
 
-  // 4. Parallel queries
+  // 4. Query GTEx (using gene_id from VEP)
+  const gtexData = await queryGtex(vep.gene_id);
+  if (gtexData) {
+    vep.gtex_expression = gtexData;
+  }
+
+  // 5. Parallel queries
   const [
     gnomad,
     constraint,
@@ -1313,7 +1362,7 @@ export async function analyzeVariant(
     options.includeEve !== false ? queryEve(variant, vep) : Promise.resolve(undefined),
   ]);
 
-  // 5. ACMG
+  // 6. ACMG
   const acmg = buildAcmgEvidence(
     vep,
     gnomad,

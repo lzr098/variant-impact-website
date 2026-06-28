@@ -976,13 +976,13 @@ export default function Home() {
                             }
                           />
                         </div>
-                        {result.uniprot.function_cn ? (
+                        {result.uniprot.function_summary_cn ? (
                           <div className="mt-3 bg-slate-50 rounded-lg p-3">
                             <p className="text-sm font-semibold text-slate-700 mb-1">
                               功能描述
                             </p>
                             <p className="text-sm text-slate-700 leading-relaxed">
-                              {result.uniprot.function_cn}
+                              {result.uniprot.function_summary_cn}
                             </p>
                             <p className="text-xs text-slate-500 mt-2 italic border-t border-slate-200 pt-2">
                               英文原文：{result.uniprot.function}

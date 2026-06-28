@@ -38,6 +38,7 @@ export interface VepResult {
   input: string;
   rsid?: string;
   gene_symbol?: string;
+  gene_id?: string;
   transcript?: string;
   cdna?: string;
   protein?: string;
@@ -92,7 +93,7 @@ export interface UniprotResult {
   protein_name?: string;
   protein_name_cn?: string;
   function?: string;
-  function_cn?: string;
+  function_summary_cn?: string;
   tissue_specificity?: string;
   features_near_variant?: Array<{
     type: string;
