@@ -12,6 +12,7 @@ import {
   Loader2, Search, Dna, FileText, Database, BookOpen,
   Activity, Beaker, ScrollText, CheckCircle2, XCircle,
   AlertTriangle, Info, Sparkles, Shield, Microscope,
+  Layers, BarChart3,
 } from "lucide-react";
 
 const ACMG_CLASS_COLORS: Record<string, string> = {
@@ -70,6 +71,65 @@ const CONSEQ_MAP: Record<string, string> = {
   downstream_gene_variant: "下游基因变异",
   coding_sequence_variant: "编码序列变异",
   non_coding_transcript_exon_variant: "非编码外显子变异",
+};
+
+// GTEx tissue name Chinese mapping
+const TISSUE_NAME_MAP: Record<string, string> = {
+  "Brain - Cerebellar Hemisphere": "大脑 - 小脑半球",
+  "Brain - Cerebellum": "大脑 - 小脑",
+  "Brain - Cortex": "大脑 - 皮层",
+  "Brain - Frontal Cortex BA9": "大脑 - 前额叶皮层 BA9",
+  "Brain - Anterior cingulate cortex BA24": "大脑 - 前扣带皮层 BA24",
+  "Brain - Hippocampus": "大脑 - 海马",
+  "Brain - Hypothalamus": "大脑 - 下丘脑",
+  "Brain - Amygdala": "大脑 - 杏仁核",
+  "Brain - Putamen basal ganglia": "大脑 - 壳核基底节",
+  "Brain - Caudate basal ganglia": "大脑 - 尾状核基底节",
+  "Brain - Nucleus accumbens basal ganglia": "大脑 - 伏隔核基底节",
+  "Brain - Substantia nigra": "大脑 - 黑质",
+  "Brain - Spinal cord cervical c-1": "大脑 - 颈脊髓 C-1",
+  "Whole Blood": "全血",
+  "Heart - Left Ventricle": "心脏 - 左心室",
+  "Heart - Atrial Appendage": "心脏 - 心耳",
+  "Liver": "肝脏",
+  "Lung": "肺",
+  "Kidney - Cortex": "肾脏 - 皮质",
+  "Muscle - Skeletal": "骨骼肌",
+  "Pancreas": "胰腺",
+  "Spleen": "脾脏",
+  "Stomach": "胃",
+  "Small Intestine - Terminal Ileum": "小肠 - 末端回肠",
+  "Colon - Sigmoid": "结肠 - 乙状结肠",
+  "Colon - Transverse": "结肠 - 横结肠",
+  "Esophagus - Muscularis": "食管 - 肌层",
+  "Esophagus - Mucosa": "食管 - 粘膜",
+  "Esophagus - Gastroesophageal Junction": "食管 - 胃食管交界",
+  "Skin - Not Sun Exposed Suprapubic": "皮肤 - 非日晒区域(耻骨上)",
+  "Skin - Sun Exposed Lower leg": "皮肤 - 日晒区域(小腿)",
+  "Adipose - Subcutaneous": "脂肪 - 皮下",
+  "Adipose - Visceral Omentum": "脂肪 - 内脏网膜",
+  "Adrenal Gland": "肾上腺",
+  "Pituitary": "垂体",
+  "Thyroid": "甲状腺",
+  "Breast - Mammary Tissue": "乳腺",
+  "Uterus": "子宫",
+  "Ovary": "卵巢",
+  "Prostate": "前列腺",
+  "Testis": "睾丸",
+  "Vagina": "阴道",
+  "Bladder": "膀胱",
+  "Fallopian Tube": "输卵管",
+  "Cervix - Endocervix": "宫颈 - 内宫颈",
+  "Cervix - Ectocervix": "宫颈 - 外宫颈",
+  "Nerve - Tibial": "神经 - 胫骨",
+  "Artery - Tibial": "动脉 - 胫骨",
+  "Artery - Coronary": "动脉 - 冠状动脉",
+  "Artery - Aorta": "动脉 - 主动脉",
+  "Cells - EBV-transformed lymphocytes": "细胞 - EBV转化淋巴细胞",
+  "Cells - Cultured fibroblasts": "细胞 - 培养成纤维细胞",
+  "Cells - Leukemia cell line CML": "细胞 - 白血病细胞系 CML",
+  "Minor Salivary Gland": "小唾液腺",
+  "Skeletal Muscle": "骨骼肌",
 };
 
 const FEATURE_TYPE_MAP: Record<string, string> = {
@@ -286,6 +346,7 @@ export default function Home() {
               <TabsTrigger value="population"><Database className="w-3.5 h-3.5 mr-1" /> 人群频率</TabsTrigger>
               <TabsTrigger value="clinvar"><Activity className="w-3.5 h-3.5 mr-1" /> ClinVar</TabsTrigger>
               <TabsTrigger value="protein"><Dna className="w-3.5 h-3.5 mr-1" /> 蛋白信息</TabsTrigger>
+              <TabsTrigger value="transcripts"><Layers className="w-3.5 h-3.5 mr-1" /> 转录本/组织</TabsTrigger>
               <TabsTrigger value="literature"><BookOpen className="w-3.5 h-3.5 mr-1" /> 文献</TabsTrigger>
               <TabsTrigger value="acmg"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> ACMG证据</TabsTrigger>
               <TabsTrigger value="markdown"><FileText className="w-3.5 h-3.5 mr-1" /> 报告</TabsTrigger>
@@ -403,6 +464,94 @@ export default function Home() {
                       )}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Transcripts & Tissues */}
+            <TabsContent value="transcripts">
+              <Card>
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Layers className="w-4 h-4 text-blue-600" /> 转录本与 GTEx 组织表达</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Main transcript info */}
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold mb-2 text-slate-700">主要转录本</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div><p className="text-xs text-slate-500">转录本 ID</p><p className="font-medium text-slate-800 text-xs font-mono">{result.vep.transcript ?? "N/A"}</p></div>
+                      <div><p className="text-xs text-slate-500">基因</p><p className="font-medium text-slate-800">{result.vep.gene_symbol ?? "N/A"}</p></div>
+                      <div><p className="text-xs text-slate-500">cDNA</p><p className="font-medium text-slate-800 text-xs font-mono">{result.vep.cdna ?? "N/A"}</p></div>
+                      <div><p className="text-xs text-slate-500">蛋白变异</p><p className="font-medium text-slate-800 text-xs">{getProteinDisplay(result.vep.protein, result.vep.amino_acids, result.vep.protein_start)}</p></div>
+                      <div><p className="text-xs text-slate-500">变异后果</p><p className="font-medium text-slate-800 text-xs">{formatConsequence(result.vep.consequence_terms)}</p></div>
+                      <div><p className="text-xs text-slate-500">来源</p><p className="font-medium text-slate-800 text-xs">Ensembl VEP</p></div>
+                    </div>
+                  </div>
+
+                  {/* GTEx Gene Expression */}
+                  {result.vep.gtex_expression?.gene_expression && Object.keys(result.vep.gtex_expression.gene_expression).length > 0 ? (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 text-slate-700 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-500" /> GTEx 基因组织表达 (Top 10)</h4>
+                      <div className="bg-white border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead><tr className="bg-slate-50 border-b"><th className="text-left py-2 px-3 font-medium text-slate-600">组织</th><th className="text-right py-2 px-3 font-medium text-slate-600">TPM</th><th className="text-left py-2 px-3 font-medium text-slate-600 w-1/2">表达水平</th></tr></thead>
+                          <tbody className="divide-y">
+                            {Object.entries(result.vep.gtex_expression.gene_expression)
+                              .sort((a, b) => b[1] - a[1])
+                              .slice(0, 10)
+                              .map(([tissue, tpm], i) => {
+                                const maxTpm = Math.max(...Object.values(result.vep.gtex_expression!.gene_expression!));
+                                const pct = (tpm / maxTpm) * 100;
+                                const tissueCn = TISSUE_NAME_MAP[tissue] ?? tissue;
+                                return (
+                                  <tr key={tissue} className={i === 0 ? "bg-blue-50/50" : ""}>
+                                    <td className="py-2 px-3 text-xs">{tissueCn}{tissueCn !== tissue && <span className="text-slate-400 ml-1">({tissue})</span>}</td>
+                                    <td className="py-2 px-3 text-right font-mono text-xs font-medium">{tpm.toFixed(2)}</td>
+                                    <td className="py-2 px-3"><div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct}%` }} /></div></td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-amber-600 text-sm"><AlertTriangle className="w-4 h-4" />暂无 GTEx 组织表达数据</div>
+                  )}
+
+                  {/* GTEx Transcript Expression */}
+                  {result.vep.gtex_expression?.transcript_expression && Object.keys(result.vep.gtex_expression.transcript_expression).length > 0 ? (
+                    <div>
+                      <h4 className="text-sm font-semibold mb-2 text-slate-700 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-green-500" /> GTEx 转录本组织表达</h4>
+                      <div className="space-y-3">
+                        {Object.entries(result.vep.gtex_expression.transcript_expression)
+                          .sort((a, b) => {
+                            const maxA = Math.max(...Object.values(a[1]), 0);
+                            const maxB = Math.max(...Object.values(b[1]), 0);
+                            return maxB - maxA;
+                          })
+                          .slice(0, 5)
+                          .map(([tid, tissues]) => {
+                            const sortedTissues = Object.entries(tissues).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                            return (
+                              <div key={tid} className="bg-white border rounded-lg p-3">
+                                <p className="text-xs font-mono font-medium text-slate-700 mb-2">{tid}</p>
+                                <div className="space-y-1">
+                                  {sortedTissues.map(([tissue, tpm]) => {
+                                    const tissueCn = TISSUE_NAME_MAP[tissue] ?? tissue;
+                                    return (
+                                      <div key={tissue} className="flex items-center gap-2 text-xs">
+                                        <span className="w-40 truncate text-slate-600">{tissueCn}</span>
+                                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-green-500 rounded-full" style={{ width: `${Math.min((tpm / 100) * 100, 100)}%` }} /></div>
+                                        <span className="w-14 text-right font-mono text-slate-500">{tpm.toFixed(1)}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </TabsContent>
