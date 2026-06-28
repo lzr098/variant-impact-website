@@ -424,6 +424,25 @@ export default function Home() {
           </Card>
         )}
 
+        {/* Debug */}
+        {isPending && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-4 flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+              <p className="text-sm text-blue-700">分析中，请稍候...</p>
+            </CardContent>
+          </Card>
+        )}
+        {result && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="pt-4">
+              <p className="text-sm text-green-700 font-medium">分析成功！</p>
+              <p className="text-xs text-green-600">基因: {result.vep.gene_symbol ?? "N/A"}</p>
+              <p className="text-xs text-green-600">ACMG: {result.acmg.classification}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results */}
         {result && (
           <>

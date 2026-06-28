@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Debug</title></head>
+<body>
+<h2>Debug Test</h2>
+<button onclick="go()">Run</button>
+<div id="out"></div>
+<script>
+async function go() {
+  const out = document.getElementById('out');
+  out.innerHTML = '<p>Step 1: Starting fetch...</p>';
+  
+  try {
+    out.innerHTML += '<p>Step 2: Fetching...</p>';
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 60000);
+    
+    const res = await fetch('/api/trpc/variant.analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({json: {variant: 'chr11:121567110 C>G', options: {}}}),
+      signal: controller.signal
+    });
+    
+    out.innerHTML += '<p>Step 3: Status=' + res.status + '</p>';
+    const text = await res.text();
+    out.innerHTML += '<p>Step 4: Text len=' + text.length + '</p>';
+    
+    try {
+      const data = JSON.parse(text);
+      out.innerHTML += '<pre>' + JSON.stringify({
+        hasError: !!data.error,
+        hasResult: !!data.result,
+        resultKeys: data.result ? Object.keys(data.result) : null,
+        dataJson: data.result?.data?.json ? 'present' : 'missing'
+      }, null, 2) + '</pre>';
+      
+      const payload = data.result?.data?.json;
+      if (payload?.success) {
+        out.innerHTML += '<p style="color:green"><b>SUCCESS!</b></p>';
+        out.innerHTML += '<p>Gene: ' + (payload.data?.vep?.gene_symbol || 'N/A') + '</p>';
+        out.innerHTML += '<p>ACMG: ' + (payload.data?.acmg?.classification || 'N/A') + '</p>';
+      } else {
+        out.innerHTML += '<p style="color:red">Failed: ' + (payload?.error || 'unknown') + '</p>';
+      }
+    } catch(e) {
+      out.innerHTML += '<p>Parse error: ' + e.message + '</p>';
+      out.innerHTML += '<p>Raw: ' + text.slice(0, 200) + '</p>';
+    }
+  } catch(e) {
+    out.innerHTML += '<p style="color:red">Fetch error: ' + e.name + ': ' + e.message + '</p>';
+  }
+}
+</script>
+</body></html>
