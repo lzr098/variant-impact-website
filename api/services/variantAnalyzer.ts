@@ -585,15 +585,183 @@ export async function queryUniprot(
     }
   }
 
+  // Extract tissue specificity
+  let tissueSpec: string | undefined;
+  for (const comment of fullData.comments ?? []) {
+    if (comment.commentType === "TISSUE SPECIFICITY") {
+      const texts: string[] = [];
+      for (const text of comment.texts ?? []) {
+        if (text.value) texts.push(text.value);
+      }
+      if (texts.length > 0) tissueSpec = texts.join(" ");
+    }
+  }
+
+  const funcText = functionTexts.join(" ");
+
   return {
     accession,
     gene_symbol: geneSymbol,
     protein_length: fullData.sequence?.length,
     protein_name: fullData.proteinDescription?.recommendedName?.fullName?.value,
-    function: functionTexts.join(" "),
+    protein_name_cn: translateProteinName(fullData.proteinDescription?.recommendedName?.fullName?.value),
+    function: funcText,
+    function_cn: translateFunction(funcText),
+    tissue_specificity: tissueSpec,
     features_near_variant: featuresNear,
     source: "uniprot_api",
   };
+}
+
+// ── Lightweight translation helpers ──
+// These do term-by-term replacement, keeping proper nouns and abbreviations in English.
+
+function translateProteinName(name: string | undefined): string | undefined {
+  if (!name) return undefined;
+  // Common domain / motif translations
+  const dict: Record<string, string> = {
+    "ubiquitin carboxyl-terminal hydrolase": "泛素羧基末端水解酶",
+    "E3 ubiquitin-protein ligase": "E3 泛素蛋白连接酶",
+    "tyrosine kinase": "酪氨酸激酶",
+    "serine/threonine-protein kinase": "丝氨酸/苏氨酸蛋白激酶",
+    "growth factor receptor": "生长因子受体",
+    "tumor protein": "肿瘤蛋白",
+    "tumor suppressor": "肿瘤抑制因子",
+    "DNA repair protein": "DNA 修复蛋白",
+    "transcription factor": "转录因子",
+    "zinc finger protein": "锌指蛋白",
+    "G protein-coupled receptor": "G 蛋白偶联受体",
+    "sodium channel protein": "钠通道蛋白",
+    "calcium channel": "钙通道",
+    "potassium channel": "钾通道",
+    "dehydrogenase": "脱氢酶",
+    "protease": "蛋白酶",
+    "phosphatase": "磷酸酶",
+    "phosphorylase": "磷酸化酶",
+    "synthase": "合成酶",
+    "ligase": "连接酶",
+    "isomerase": "异构酶",
+    "reductase": "还原酶",
+    "transferase": "转移酶",
+    "hydrolase": "水解酶",
+    "receptor": "受体",
+    "channel": "通道",
+    "protein": "蛋白",
+  };
+  // Try phrase matches first (longer phrases first)
+  const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  let result = name.toLowerCase();
+  for (const key of sortedKeys) {
+    if (result.includes(key)) {
+      result = result.replace(new RegExp(key, "g"), dict[key]!);
+    }
+  }
+  // If no substitution happened, return undefined
+  if (result === name.toLowerCase()) return undefined;
+  return result;
+}
+
+function translateFunction(func: string | undefined): string | undefined {
+  if (!func || func.length < 10) return undefined;
+  // High-frequency scientific term dictionary
+  const dict: Record<string, string> = {
+    "acts as a": "作为",
+    "functions as a": "功能是作为",
+    "functions as": "功能为",
+    "plays a role": "发挥作用",
+    "plays a critical role": "发挥关键作用",
+    "plays an essential role": "发挥 essential 作用",
+    "plays an important role": "发挥重要作用",
+    "is required for": "对...是必需的",
+    "is essential for": "对...是 essential 的",
+    "is involved in": "参与",
+    "participates in": "参与",
+    "regulates": "调控",
+    "negatively regulates": "负向调控",
+    "positively regulates": "正向调控",
+    "modulates": "调节",
+    "catalyzes": "催化",
+    "promotes": "促进",
+    "inhibits": "抑制",
+    "mediates": "介导",
+    "induces": "诱导",
+    "binds to": "结合于",
+    "interacts with": "与...相互作用",
+    "degrades": "降解",
+    "stabilizes": "稳定化",
+    "ubiquitin": "泛素",
+    "ubiquitination": "泛素化",
+    "phosphorylation": "磷酸化",
+    "dephosphorylation": "去磷酸化",
+    "methylation": "甲基化",
+    "acetylation": "乙酰化",
+    "sumoylation": "SUMO 化",
+    "proteasome": "蛋白酶体",
+    "autophagy": "自噬",
+    "apoptosis": "细胞凋亡",
+    "cell proliferation": "细胞增殖",
+    "cell differentiation": "细胞分化",
+    "cell cycle": "细胞周期",
+    "cell migration": "细胞迁移",
+    "signal transduction": "信号转导",
+    "signaling pathway": "信号通路",
+    "immune response": "免疫应答",
+    "inflammatory response": "炎症反应",
+    "DNA repair": "DNA 修复",
+    "DNA damage": "DNA 损伤",
+    "transcription": "转录",
+    "translation": "翻译",
+    "splicing": "剪接",
+    "receptor": "受体",
+    "kinase": "激酶",
+    "phosphatase": "磷酸酶",
+    "ligase": "连接酶",
+    "protease": "蛋白酶",
+    "endonuclease": "核酸内切酶",
+    "exonuclease": "核酸外切酶",
+    "polymerase": "聚合酶",
+    "synthase": "合成酶",
+    "dehydrogenase": "脱氢酶",
+    "reductase": "还原酶",
+    "transferase": "转移酶",
+    "hydrolase": "水解酶",
+    "isomerase": "异构酶",
+    "protein-protein interaction": "蛋白-蛋白相互作用",
+    "gene expression": "基因表达",
+    "chromatin remodeling": "染色质重塑",
+    "histone modification": "组蛋白修饰",
+    "membrane protein": "膜蛋白",
+    "secreted protein": "分泌蛋白",
+    "nuclear protein": "核蛋白",
+    "cytoplasmic protein": "胞质蛋白",
+    "mitochondrial": "线粒体",
+    "endoplasmic reticulum": "内质网",
+    "Golgi apparatus": "高尔基体",
+    "lysosome": "溶酶体",
+    "peroxisome": "过氧化物酶体",
+    "tumor": "肿瘤",
+    "cancer": "癌症",
+    "oncogene": "癌基因",
+    "oncogenic": "致癌性的",
+    "tumorigenesis": "肿瘤发生",
+    "metastasis": "转移",
+    "neurodegeneration": "神经退行性变",
+    "cardiovascular disease": "心血管疾病",
+    "metabolic disorder": "代谢疾病",
+    "development": "发育",
+    "embryonic development": "胚胎发育",
+  };
+
+  let result = func;
+  // Replace phrase-by-phrase (longer first)
+  const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
+    const re = new RegExp(`\\b${key}\\b`, "gi");
+    result = result.replace(re, dict[key]!);
+  }
+  // If less than 30% was translated, don't use it
+  const changed = result !== func;
+  return changed ? result : undefined;
 }
 
 // ═══════════════════════════════════════════════════════════════════

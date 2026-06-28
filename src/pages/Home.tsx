@@ -953,7 +953,11 @@ export default function Home() {
                           />
                           <InfoRow
                             label="蛋白名称"
-                            value={result.uniprot.protein_name}
+                            value={
+                              result.uniprot.protein_name_cn
+                                ? `${result.uniprot.protein_name}（${result.uniprot.protein_name_cn}）`
+                                : result.uniprot.protein_name
+                            }
                           />
                           <InfoRow
                             label="蛋白长度"
@@ -972,7 +976,19 @@ export default function Home() {
                             }
                           />
                         </div>
-                        {result.uniprot.function && (
+                        {result.uniprot.function_cn ? (
+                          <div className="mt-3 bg-slate-50 rounded-lg p-3">
+                            <p className="text-sm font-semibold text-slate-700 mb-1">
+                              功能描述
+                            </p>
+                            <p className="text-sm text-slate-700 leading-relaxed">
+                              {result.uniprot.function_cn}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-2 italic border-t border-slate-200 pt-2">
+                              英文原文：{result.uniprot.function}
+                            </p>
+                          </div>
+                        ) : result.uniprot.function ? (
                           <div className="mt-3 bg-slate-50 rounded-lg p-3">
                             <p className="text-sm font-semibold text-slate-700 mb-1">
                               功能描述
@@ -984,7 +1000,7 @@ export default function Home() {
                               （原文来自 UniProt，英文）
                             </p>
                           </div>
-                        )}
+                        ) : null}
                         {result.uniprot.features_near_variant &&
                           result.uniprot.features_near_variant.length > 0 && (
                             <div className="mt-3">

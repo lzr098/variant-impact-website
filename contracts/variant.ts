@@ -90,7 +90,10 @@ export interface UniprotResult {
   gene_symbol?: string;
   protein_length?: number;
   protein_name?: string;
+  protein_name_cn?: string;
   function?: string;
+  function_cn?: string;
+  tissue_specificity?: string;
   features_near_variant?: Array<{
     type: string;
     description?: string;

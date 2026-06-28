@@ -393,8 +393,23 @@ export default function TissueImpact({
           </div>
         )}
 
+        {/* ── Tissue specificity fallback from UniProt ── */}
+        {!tissues && result.uniprot.tissue_specificity && (
+          <div className="bg-slate-50 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-slate-700 mb-2">
+              组织特异性（来自 UniProt，定性描述）
+            </h4>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {result.uniprot.tissue_specificity}
+            </p>
+            <p className="text-xs text-slate-400 mt-2 italic">
+              GTEx 定量表达数据暂不可用，以上为 UniProt 组织特异性注释
+            </p>
+          </div>
+        )}
+
         {/* ── No data fallback ── */}
-        {!tissues && (
+        {!tissues && !result.uniprot.tissue_specificity && (
           <div className="text-sm text-slate-400 text-center py-4">
             无 GTEx 组织表达数据
           </div>
