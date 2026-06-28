@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TissueImpact from "@/components/tissueImpact";
 import {
   Loader2,
   Search,
@@ -503,6 +504,10 @@ export default function Home() {
                   <Beaker className="w-3.5 h-3.5 mr-1" />
                   功能预测
                 </TabsTrigger>
+                <TabsTrigger value="tissue">
+                  <Dna className="w-3.5 h-3.5 mr-1" />
+                  转录本与组织
+                </TabsTrigger>
                 <TabsTrigger value="population">
                   <Database className="w-3.5 h-3.5 mr-1" />
                   人群频率
@@ -715,6 +720,11 @@ export default function Home() {
                     )}
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              {/* Tissue & Transcript Impact */}
+              <TabsContent value="tissue">
+                <TissueImpact result={result} />
               </TabsContent>
 
               {/* Population */}
