@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { trpc } from "@/providers/trpc";
+import type { FullResult } from "@contracts/variant";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -155,15 +155,40 @@ export default function Home() {
     includeEve: true,
     secondVariantPathogenic: false,
   });
+  const [result, setResult] = useState<FullResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  const analyze = trpc.variant.analyze.useMutation();
-  const result = analyze.data?.success ? analyze.data.data : null;
-  const error = analyze.data?.success === false ? analyze.data.error : null;
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!variantInput.trim()) return;
-    analyze.mutate({ variant: variantInput.trim(), options });
+    setIsPending(true);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/trpc/variant.analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          json: { variant: variantInput.trim(), options },
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error.json?.message || "请求失败");
+      } else {
+        const payload = data.result?.data?.json;
+        if (payload?.success) {
+          setResult(payload.data);
+        } else {
+          setError(payload?.error || "分析失败");
+        }
+      }
+    } catch (err: any) {
+      setError(err?.message || "网络错误");
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const getClassBadge = (cls: string) => {
@@ -213,10 +238,10 @@ export default function Home() {
                 />
                 <Button
                   type="submit"
-                  disabled={analyze.isPending || !variantInput.trim()}
+                  disabled={isPending || !variantInput.trim()}
                   className="min-w-[100px]"
                 >
-                  {analyze.isPending ? (
+                  {isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
@@ -307,7 +332,7 @@ export default function Home() {
         </Card>
 
         {/* ── 2. Supported formats (when no result) ── */}
-        {!result && !analyze.isPending && (
+        {!result && !isPending && (
           <Card>
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center gap-2 mb-3">
@@ -345,7 +370,7 @@ export default function Home() {
         )}
 
         {/* ── 3. Feature cards (when no result) ── */}
-        {!result && !analyze.isPending && (
+        {!result && !isPending && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
               <CardContent className="pt-5 pb-4">
