@@ -1844,20 +1844,76 @@ async function llmTranslate(text: string): Promise<string | undefined> {
   return typeof content === "string" && content.trim() ? content.trim() : undefined;
 }
 
-/** Translate UniProt FUNCTION description. LLM primary (if key configured), dict fallback. */
+/** Free translation API fallback — no API key needed */
+async function freeApiTranslate(text: string): Promise<string | undefined> {
+  // Try MyMemory API (free, 1000 words/day anonymous)
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|zh-CN`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (res.ok) {
+      const data: any = await res.json();
+      const translated = data?.responseData?.translatedText;
+      if (translated && translated !== text && !translated.includes("MYMEMORY WARNING")) {
+        return translated;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // Try LibreTranslate public instance
+  try {
+    const res = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ q: text, source: "en", target: "zh", format: "text" }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data?.translatedText && data.translatedText !== text) {
+        return data.translatedText;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return undefined;
+}
+
+/** Translate UniProt FUNCTION description.
+ *  Priority: 1) LLM (if key configured), 2) Free translation API, 3) Dictionary
+ */
 export async function translateFunction(func: string | undefined): Promise<string | undefined> {
   if (!func || func.length < 10) return undefined;
 
   const { apiKey } = getLlmConfig();
+
+  // 1) LLM (best quality, requires API key)
   if (apiKey) {
     try {
       const translated = await llmTranslate(func);
       if (translated) return translated;
     } catch (err) {
-      console.error("[translation] LLM failed, falling back to dictionary:", err instanceof Error ? err.message : err);
+      console.error("[translation] LLM failed:", err instanceof Error ? err.message : err);
     }
   }
 
+  // 2) Free translation API (full-text translation, no key needed)
+  try {
+    const translated = await freeApiTranslate(func);
+    if (translated) {
+      // Post-process: fix common translation artifacts
+      return translated
+        .replace(/\b([A-Z][a-z]* kinase|UniProt|HGNC|PubMed|PDB|DNA|RNA|mRNA|tRNA|rRNA|ATP|GTP|ADP|GDP|cAMP|cGMP)\b/g, (m: string) => m) // keep proper nouns
+        .replace(/。\s*$/g, "。");
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3) Dictionary fallback
   return translateByDict(func, FUNCTION_DICT);
 }
 
