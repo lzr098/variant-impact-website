@@ -70,7 +70,8 @@ describe("translateFunction (dict fallback)", () => {
 
   it("returns undefined when no terms match", async () => {
     const { translateFunction } = await import("../services/translation");
-    expect(await translateFunction("This is a completely unknown xyzq protein with no matches.")).toBeUndefined();
+    // Use gibberish that matches zero dictionary entries
+    expect(await translateFunction("xyzq abcde fghij klmno pqrst uvwxy zzzzz 12345.")).toBeUndefined();
   });
 });
 
