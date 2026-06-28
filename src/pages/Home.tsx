@@ -145,22 +145,16 @@ export default function Home() {
     setError(null);
 
     try {
-      const res = await fetch("/api/trpc/variant.analyze", {
+      const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json: { variant: v, options } }),
+        body: JSON.stringify({ variant: v, options }),
       });
       const data = await res.json();
-
-      if (data.error) {
-        setError(data.error.json?.message || "请求失败");
+      if (data.success) {
+        setResult(data.data as FullResult);
       } else {
-        const payload = data.result?.data?.json;
-        if (payload?.success) {
-          setResult(payload.data as FullResult);
-        } else {
-          setError(payload?.error || "分析失败");
-        }
+        setError(data.error || "分析失败");
       }
     } catch (err: any) {
       setError(err?.message || "网络错误");
