@@ -32,6 +32,12 @@ export interface Variant {
   qc?: Record<string, string | number>;
 }
 
+// ── GTEx ──
+export interface GtexResult {
+  gene_expression?: Record<string, number>;       // tissue -> TPM
+  transcript_expression?: Record<string, Record<string, number>>; // transcript -> tissue -> TPM
+}
+
 // ── VEP ──
 export interface VepResult {
   query: string;
@@ -53,7 +59,7 @@ export interface VepResult {
   spliceai?: { DS_AG?: number; DS_AL?: number; DS_DG?: number; DS_DL?: number };
   revel?: number;
   gnomad_frequencies?: Record<string, number>;
-  gtex_expression?: Record<string, number>;
+  gtex_expression?: GtexResult;
   all_transcript_consequences?: any[];
   error?: string;
 }
