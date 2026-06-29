@@ -1041,16 +1041,16 @@ export function buildAcmgEvidence(
   if (clinvarClass === "likely pathogenic" && clinvarStars >= 2) {
     evidence.push({ criterion: "PP5_Moderate", strength: "Moderate", description: `ClinVar Likely Pathogenic, ${clinvarStars} stars` });
     pathogenicWeight += 2;
-  } else if (clinvarClass === "pathogenic" && clinvarStars >= 3) {
+  } else if (clinvarClass.includes("pathogenic") && clinvarStars >= 3) {
     evidence.push({ criterion: "PS1", strength: "Strong", description: `ClinVar Pathogenic, ${clinvarStars} stars` });
     pathogenicWeight += 4;
-  } else if (clinvarClass === "pathogenic" && clinvarStars >= 2) {
+  } else if (clinvarClass.includes("pathogenic") && clinvarStars >= 2) {
     evidence.push({ criterion: "PP5_Strong", strength: "Strong", description: `ClinVar Pathogenic, multiple submitters` });
     pathogenicWeight += 4;
-  } else if (clinvarClass === "pathogenic" && clinvarStars >= 1) {
+  } else if (clinvarClass.includes("pathogenic") && clinvarStars >= 1) {
     evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar Pathogenic, single submitter` });
     pathogenicWeight += 1;
-  } else if (clinvarClass === "pathogenic") {
+  } else if (clinvarClass.includes("pathogenic")) {
     evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar ${clinvar.classification}` });
     pathogenicWeight += 1;
   }
