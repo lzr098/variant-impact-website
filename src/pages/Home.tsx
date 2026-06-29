@@ -375,7 +375,6 @@ export default function Home() {
               <TabsTrigger value="predictions"><Beaker className="w-3.5 h-3.5 mr-1" /> 功能预测</TabsTrigger>
               <TabsTrigger value="population"><Database className="w-3.5 h-3.5 mr-1" /> 人群频率</TabsTrigger>
               <TabsTrigger value="clinvar"><Activity className="w-3.5 h-3.5 mr-1" /> ClinVar</TabsTrigger>
-              <TabsTrigger value="diseases"><Microscope className="w-3.5 h-3.5 mr-1" /> 关联疾病</TabsTrigger>
               <TabsTrigger value="protein"><Dna className="w-3.5 h-3.5 mr-1" /> 蛋白信息</TabsTrigger>
               <TabsTrigger value="transcripts"><Layers className="w-3.5 h-3.5 mr-1" /> 转录本/组织</TabsTrigger>
               <TabsTrigger value="literature"><BookOpen className="w-3.5 h-3.5 mr-1" /> 文献</TabsTrigger>
@@ -460,44 +459,30 @@ export default function Home() {
                         <InfoRow label="数据来源" value={result.clinvar.source} />
                       </div>
                       {result.clinvar.traits && result.clinvar.traits.length > 0 && (
-                        <div className="mt-3"><p className="text-sm font-medium text-slate-700 mb-1">关联表型</p><div className="flex flex-wrap gap-1">{result.clinvar.traits.map((t, i) => <Badge key={i} variant="outline" className="text-xs">{t}</Badge>)}</div></div>
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                          <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                            <Microscope className="w-4 h-4 text-blue-600" /> 关联疾病
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {result.clinvar.traits.filter(t => !t.toLowerCase().includes("not provided") && !t.toLowerCase().includes("not specified")).map((t, i) => {
+                              const cn = translateDisease(t);
+                              return (
+                                <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                  <div className="flex items-start gap-2">
+                                    <Badge variant="secondary" className="shrink-0 mt-0.5">{i + 1}</Badge>
+                                    <div>
+                                      <p className="text-sm font-medium text-slate-800">{cn}</p>
+                                      {cn !== t && <p className="text-xs text-slate-500 mt-0.5">{t}</p>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-3">* 数据来源：ClinVar（NCBI）</p>
+                        </div>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Diseases */}
-            <TabsContent value="diseases">
-              <Card>
-                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Microscope className="w-4 h-4 text-blue-600" /> 关联疾病</CardTitle></CardHeader>
-                <CardContent>
-                  {result.clinvar.error ? (
-                    <div className="flex items-center gap-2 text-amber-600 text-sm"><AlertTriangle className="w-4 h-4" />{result.clinvar.error}</div>
-                  ) : result.clinvar.traits && result.clinvar.traits.length > 0 ? (
-                    <div className="space-y-4">
-                      <p className="text-sm text-slate-600">根据 ClinVar 数据库，该变异与以下疾病/表型相关：</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {result.clinvar.traits.map((t, i) => {
-                          const cn = translateDisease(t);
-                          return (
-                            <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                              <div className="flex items-start gap-2">
-                                <Badge variant="secondary" className="shrink-0 mt-0.5">{i + 1}</Badge>
-                                <div>
-                                  <p className="text-sm font-medium text-slate-800">{cn}</p>
-                                  {cn !== t && <p className="text-xs text-slate-500 mt-0.5">{t}</p>}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-slate-400 mt-2">* 数据来源：ClinVar（NCBI）</p>
-                    </div>
-                  ) : (
-                    <div className="text-sm text-slate-500">暂无关联疾病记录</div>
                   )}
                 </CardContent>
               </Card>
