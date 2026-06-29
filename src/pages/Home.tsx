@@ -600,7 +600,12 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="text-center text-xs text-slate-400 pt-8 pb-4">
-          <p>GRCh38 Variant Impact Analyzer · ACMG-AMP 2015</p>
+          <p>GRCh38 Variant Impact Analyzer</p>
+          <p className="mt-1">
+            <a href="https://github.com/lzr098/variant-impact-website" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-600">
+              github.com/lzr098/variant-impact-website
+            </a>
+          </p>
           <p className="mt-1">本报告仅供研究参考，不可作为临床诊断依据</p>
         </footer>
       </main>
