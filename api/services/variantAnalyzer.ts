@@ -197,6 +197,29 @@ export function parseVariant(variantStr: string): Variant {
   // Now split by both colon and space
   const tokens = s.split(/[:\s]+/).filter(Boolean);
 
+  // ── Handle HGVS with "g" or "g." token: chr:g.pos ref alt → [chr,g.pos,ref,alt] ──
+  // After split, g and pos may be joined: "g.121567110" (period is not a separator)
+  if (tokens.length >= 3 && tokens[1] && tokens[1].startsWith("g") && tokens[1].length > 1) {
+    const gMatch = tokens[1]!.match(/^g\.?(\d+)$/);
+    if (gMatch) {
+      const hgvsChrom = normalizeChrom(tokens[0]!);
+      const hgvsPos = parseInt(gMatch[1]!, 10);
+      const hgvsRef = tokens[2]!.toUpperCase();
+      const hgvsAlt = tokens.length > 3 ? tokens[3]!.toUpperCase() : "";
+      const validBases = /^[ACGTN]+$/i;
+      if (!isNaN(hgvsPos) && validBases.test(hgvsRef) && hgvsAlt.length <= 200) {
+        return {
+          raw: variantStr,
+          chrom: hgvsChrom,
+          pos: hgvsPos,
+          ref: hgvsRef,
+          alt: hgvsAlt,
+          hgvs_g: `${hgvsChrom}:g.${hgvsPos}${hgvsRef}>${hgvsAlt}`,
+        };
+      }
+    }
+  }
+
   if (tokens.length >= 4) {
     // Format: [chr] [pos] [ref] [alt]
     const chrom = normalizeChrom(tokens[0]!);
@@ -862,6 +885,19 @@ function isMissense(vep: VepResult): boolean {
   return (vep.consequence_terms ?? []).includes("missense_variant");
 }
 
+function isInframeIndel(vep: VepResult): boolean {
+  const terms = vep.consequence_terms ?? [];
+  return terms.some((t) => t === "inframe_insertion" || t === "inframe_deletion");
+}
+
+function isSilentSynonymous(vep: VepResult): boolean {
+  const terms = vep.consequence_terms ?? [];
+  if (!terms.includes("synonymous_variant")) return false;
+  const sai2 = vep.spliceai ?? {};
+  const maxDelta = Math.max(sai2.DS_AG ?? 0, sai2.DS_AL ?? 0, sai2.DS_DG ?? 0, sai2.DS_DL ?? 0);
+  return maxDelta < 0.1;
+}
+
 function isSpliceAltered(vep: VepResult): boolean {
   const sai = vep.spliceai ?? {};
   const maxDelta = Math.max(
@@ -888,7 +924,7 @@ export function buildAcmgEvidence(
   gnomad: GnomadResult,
   clinvar: ClinvarResult,
   constraint: ConstraintResult,
-  _uniprot: UniprotResult,
+  uniprot: UniprotResult,
   eve?: EveResult,
   secondVariantPathogenic = false
 ): AcmgResult {
@@ -935,6 +971,12 @@ export function buildAcmgEvidence(
     }
   }
 
+  // BP7: Silent synonymous variant with no splice impact
+  if (isSilentSynonymous(vep)) {
+    evidence.push({ criterion: "BP7", strength: "Supporting", description: "Synonymous variant with predicted no splicing impact" });
+    benignWeight += 1;
+  }
+
   // ── Pathogenic criteria ──
   // PVS1: LOF variant
   if (isLofVariant(vep)) {
@@ -950,24 +992,67 @@ export function buildAcmgEvidence(
     }
   }
 
-  // PS1/PP5: ClinVar pathogenic
-  if (clinvarClass.includes("pathogenic") && clinvarStars >= 3) {
-    evidence.push({ criterion: "PS1", strength: "Strong", description: `ClinVar Pathogenic, ${clinvarStars} stars` });
-    pathogenicWeight += 4;
-  } else if (clinvarClass.includes("pathogenic") && clinvarStars >= 2) {
-    evidence.push({ criterion: "PP5_Strong", strength: "Strong", description: `ClinVar Pathogenic, multiple submitters` });
-    pathogenicWeight += 4;
-  } else if (clinvarClass.includes("pathogenic") && clinvarStars >= 1) {
-    evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar Pathogenic, single submitter` });
-    pathogenicWeight += 1;
-  } else if (clinvarClass.includes("pathogenic")) {
-    evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar ${clinvar.classification}` });
-    pathogenicWeight += 1;
+  // PM4: Inframe indel in non-repeat region
+  if (isInframeIndel(vep)) {
+    const features = uniprot.features_near_variant ?? [];
+    const inRepeat = features.some(
+      (f) => (f.type ?? "").toLowerCase().includes("repeat")
+    );
+    if (!inRepeat) {
+      const aaLen = (vep.protein_end ?? vep.protein_start ?? 0) - (vep.protein_start ?? 0) + 1;
+      if (aaLen > 1) {
+        evidence.push({ criterion: "PM4_Strong", strength: "Strong", description: `Inframe indel changing ${aaLen} residues, not in repeat region` });
+        pathogenicWeight += 4;
+      } else {
+        evidence.push({ criterion: "PM4", strength: "Moderate", description: "Inframe indel (1 residue) in non-repeat region" });
+        pathogenicWeight += 2;
+      }
+    }
   }
 
-  if (clinvarClass.includes("likely_pathogenic") && clinvarStars >= 2) {
+  // PM1: Located in critical functional domain
+  if (isMissense(vep) && uniprot.features_near_variant?.length) {
+    const proteinPos = vep.protein_start;
+    if (proteinPos != null) {
+      for (const feat of uniprot.features_near_variant) {
+        const ftStart = feat.start ?? 0;
+        const ftEnd = feat.end ?? 0;
+        if (proteinPos >= ftStart && proteinPos <= ftEnd) {
+          const ftType = (feat.type ?? "").toLowerCase();
+          if (ftType.includes("active site")) {
+            evidence.push({ criterion: "PM1_Strong", strength: "Strong", description: `In ${feat.type} (${feat.description ?? ""})` });
+            pathogenicWeight += 4;
+            break;
+          } else if (ftType.includes("binding")) {
+            evidence.push({ criterion: "PM1", strength: "Moderate", description: `In ${feat.type} (${feat.description ?? ""})` });
+            pathogenicWeight += 2;
+            break;
+          } else if (ftType.includes("domain")) {
+            evidence.push({ criterion: "PM1_Supporting", strength: "Supporting", description: `In functional domain: ${feat.type} (${feat.description ?? ""})` });
+            pathogenicWeight += 1;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // PS1/PP5: ClinVar pathogenic
+  if (clinvarClass === "likely pathogenic" && clinvarStars >= 2) {
     evidence.push({ criterion: "PP5_Moderate", strength: "Moderate", description: `ClinVar Likely Pathogenic, ${clinvarStars} stars` });
     pathogenicWeight += 2;
+  } else if (clinvarClass === "pathogenic" && clinvarStars >= 3) {
+    evidence.push({ criterion: "PS1", strength: "Strong", description: `ClinVar Pathogenic, ${clinvarStars} stars` });
+    pathogenicWeight += 4;
+  } else if (clinvarClass === "pathogenic" && clinvarStars >= 2) {
+    evidence.push({ criterion: "PP5_Strong", strength: "Strong", description: `ClinVar Pathogenic, multiple submitters` });
+    pathogenicWeight += 4;
+  } else if (clinvarClass === "pathogenic" && clinvarStars >= 1) {
+    evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar Pathogenic, single submitter` });
+    pathogenicWeight += 1;
+  } else if (clinvarClass === "pathogenic") {
+    evidence.push({ criterion: "PP5", strength: "Supporting", description: `ClinVar ${clinvar.classification}` });
+    pathogenicWeight += 1;
   }
 
   // PM2: Absent/very rare

@@ -9,10 +9,13 @@ beforeEach(() => {
   // Force LLM off so translateFunction falls back to dictionary
   delete process.env.LLM_API_KEY;
   delete process.env.LLM_ENDPOINT;
+  // Mock free API to fail, so dict is the fallback
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("free api unavailable"));
 });
 
 afterEach(() => {
   process.env = { ...ORIGINAL_ENV };
+  vi.restoreAllMocks();
 });
 
 describe("translateProteinName", () => {
