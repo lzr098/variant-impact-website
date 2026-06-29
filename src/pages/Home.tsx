@@ -73,6 +73,36 @@ const CONSEQ_MAP: Record<string, string> = {
   non_coding_transcript_exon_variant: "非编码外显子变异",
 };
 
+// Disease name Chinese mapping (from ClinVar traits)
+const DISEASE_MAP: Record<string, string> = {
+  "Beta-thalassemia": "β-地中海贫血",
+  "beta Thalassemia": "β-地中海贫血",
+  "Thalassemia": "地中海贫血",
+  "Sickle cell disease": "镰状细胞病",
+  "Sickle cell anemia": "镰状细胞贫血",
+  "Erythrocytosis, familial": "家族性红细胞增多症",
+  "Erythrocytosis, familial, 6": "家族性红细胞增多症 6 型",
+  "Heinz body anemia": "Heinz 小体贫血",
+  "Hereditary persistence of fetal hemoglobin": "遗传性胎儿血红蛋白持续存在症",
+  "HPFH": "遗传性胎儿血红蛋白持续存在症 (HPFH)",
+  "Hb SS disease": "Hb SS 病",
+  "Dominant beta-thalassemia": "显性 β-地中海贫血",
+  "METHEMOGLOBINEMIA, BETA TYPE": "β-型高铁血红蛋白血症",
+  "Malaria, susceptibility to": "疟疾易感性",
+  "not provided": "未提供",
+  "not specified": "未指定",
+};
+
+function translateDisease(name: string): string {
+  // Exact match first
+  if (DISEASE_MAP[name]) return DISEASE_MAP[name];
+  // Partial match
+  for (const [en, cn] of Object.entries(DISEASE_MAP)) {
+    if (name.toLowerCase().includes(en.toLowerCase())) return cn;
+  }
+  return name;
+}
+
 // GTEx tissue name Chinese mapping
 const TISSUE_NAME_MAP: Record<string, string> = {
   "Brain - Cerebellar Hemisphere": "大脑 - 小脑半球",
@@ -345,6 +375,7 @@ export default function Home() {
               <TabsTrigger value="predictions"><Beaker className="w-3.5 h-3.5 mr-1" /> 功能预测</TabsTrigger>
               <TabsTrigger value="population"><Database className="w-3.5 h-3.5 mr-1" /> 人群频率</TabsTrigger>
               <TabsTrigger value="clinvar"><Activity className="w-3.5 h-3.5 mr-1" /> ClinVar</TabsTrigger>
+              <TabsTrigger value="diseases"><Microscope className="w-3.5 h-3.5 mr-1" /> 关联疾病</TabsTrigger>
               <TabsTrigger value="protein"><Dna className="w-3.5 h-3.5 mr-1" /> 蛋白信息</TabsTrigger>
               <TabsTrigger value="transcripts"><Layers className="w-3.5 h-3.5 mr-1" /> 转录本/组织</TabsTrigger>
               <TabsTrigger value="literature"><BookOpen className="w-3.5 h-3.5 mr-1" /> 文献</TabsTrigger>
@@ -432,6 +463,41 @@ export default function Home() {
                         <div className="mt-3"><p className="text-sm font-medium text-slate-700 mb-1">关联表型</p><div className="flex flex-wrap gap-1">{result.clinvar.traits.map((t, i) => <Badge key={i} variant="outline" className="text-xs">{t}</Badge>)}</div></div>
                       )}
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Diseases */}
+            <TabsContent value="diseases">
+              <Card>
+                <CardHeader><CardTitle className="text-base flex items-center gap-2"><Microscope className="w-4 h-4 text-blue-600" /> 关联疾病</CardTitle></CardHeader>
+                <CardContent>
+                  {result.clinvar.error ? (
+                    <div className="flex items-center gap-2 text-amber-600 text-sm"><AlertTriangle className="w-4 h-4" />{result.clinvar.error}</div>
+                  ) : result.clinvar.traits && result.clinvar.traits.length > 0 ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-600">根据 ClinVar 数据库，该变异与以下疾病/表型相关：</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {result.clinvar.traits.map((t, i) => {
+                          const cn = translateDisease(t);
+                          return (
+                            <div key={i} className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                              <div className="flex items-start gap-2">
+                                <Badge variant="secondary" className="shrink-0 mt-0.5">{i + 1}</Badge>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-800">{cn}</p>
+                                  {cn !== t && <p className="text-xs text-slate-500 mt-0.5">{t}</p>}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">* 数据来源：ClinVar（NCBI）</p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-slate-500">暂无关联疾病记录</div>
                   )}
                 </CardContent>
               </Card>
