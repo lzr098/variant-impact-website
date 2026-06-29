@@ -152,6 +152,40 @@ export function parseVariant(variantStr: string): Variant {
     return { raw: variantStr, chrom, pos, ref, alt, hgvs_g: `${chrom}:g.${pos}${ref}>${alt}` };
   }
 
+  // ── 4b. HGVS deletion: (chr)7:g.123_456del or (chr)7:g.123_456delCTT ──
+  const delHgvs = s.match(/^(chr)?([0-9XYMTxymt]+):g\.(\d+)(?:_(\d+))?del([ACGTNacgtn]*)$/i);
+  if (delHgvs) {
+    const chrom = normalizeChrom(delHgvs[2]!);
+    const start = parseInt(delHgvs[3]!, 10);
+    const end = delHgvs[4] ? parseInt(delHgvs[4]!, 10) : start;
+    const deletedSeq = (delHgvs[5] ?? "").toUpperCase();
+    return {
+      raw: variantStr,
+      chrom,
+      pos: start,
+      ref: deletedSeq || "-",
+      alt: "-",
+      hgvs_g: `${chrom}:g.${start}${end !== start ? `_${end}` : ""}del${deletedSeq}`,
+    };
+  }
+
+  // ── 4c. HGVS insertion: (chr)7:g.123_456insA or (chr)7:g.123insA ──
+  const insHgvs = s.match(/^(chr)?([0-9XYMTxymt]+):g\.(\d+)(?:_(\d+))?ins([ACGTNacgtn]+)$/i);
+  if (insHgvs) {
+    const chrom = normalizeChrom(insHgvs[2]!);
+    const start = parseInt(insHgvs[3]!, 10);
+    const end = insHgvs[4] ? parseInt(insHgvs[4]!, 10) : start;
+    const insSeq = insHgvs[5]!.toUpperCase();
+    return {
+      raw: variantStr,
+      chrom,
+      pos: start,
+      ref: "-",
+      alt: insSeq,
+      hgvs_g: `${chrom}:g.${start}${end !== start ? `_${end}` : ""}ins${insSeq}`,
+    };
+  }
+
   // ── 5. Generic smart parser ──
   // Normalize: collapse all whitespace to single spaces, keep colons
   s = s.replace(/\s+/g, " ");
@@ -169,6 +203,24 @@ export function parseVariant(variantStr: string): Variant {
     const pos = parseInt(tokens[1]!, 10);
     const ref = tokens[2]!.toUpperCase();
     const alt = tokens[3]!.toUpperCase();
+
+    // ── Deletion: ref longer than alt and shares prefix (e.g., CTTT > C) ──
+    if (ref.length > alt.length && alt.length > 0 && ref.startsWith(alt)) {
+      const deleted = ref.slice(alt.length);
+      const delStart = pos + alt.length;
+      const delEnd = pos + ref.length - 1;
+      const hgvs = `${chrom}:g.${delStart}_${delEnd}del${deleted}`;
+      return { raw: variantStr, chrom, pos: delStart, ref: deleted, alt: "-", hgvs_g: hgvs };
+    }
+
+    // ── Insertion: alt longer than ref and shares prefix (e.g., C > CTTT) ──
+    if (alt.length > ref.length && ref.length > 0 && alt.startsWith(ref)) {
+      const inserted = alt.slice(ref.length);
+      const insStart = pos + ref.length;
+      const hgvs = `${chrom}:g.${insStart}_${insStart + 1}ins${inserted}`;
+      return { raw: variantStr, chrom, pos: insStart, ref: "-", alt: inserted, hgvs_g: hgvs };
+    }
+
     if (!isNaN(pos) && /^[ACGTN]+$/i.test(ref) && /^[ACGTN]+$/i.test(alt)) {
       return { raw: variantStr, chrom, pos, ref, alt, hgvs_g: `${chrom}:g.${pos}${ref}>${alt}` };
     }
@@ -203,7 +255,7 @@ export function parseVariant(variantStr: string): Variant {
 
   throw new Error(
     `Unsupported variant format: "${variantStr}". ` +
-    `Expected: chr:pos:ref:alt, chr:pos ref>alt, HGVS (e.g. chr11:g.121567110C>G), rsID, NM_:c., or VCF tab-separated`
+    `Expected: chr:pos:ref:alt, chr:pos ref>alt, HGVS (e.g. chr11:g.121567110C>G, chr7:g.123_456delCTT, chr7:g.123_456insA), rsID, NM_:c., or VCF tab-separated`
   );
 }
 

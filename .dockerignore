@@ -6,7 +6,6 @@ README.md
 .env
 .env.local
 .env.*.local
-dist
 .vscode
 .idea
 *.md
