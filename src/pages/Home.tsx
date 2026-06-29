@@ -452,11 +452,16 @@ export default function Home() {
                         <InfoRow label="蛋白长度" value={result.uniprot.protein_length ? `${result.uniprot.protein_length} 个氨基酸` : undefined} />
                         <InfoRow label="数据来源" value={result.uniprot.source === "uniprot_api" ? "UniProt API" : result.uniprot.source} />
                       </div>
-                      {result.uniprot.function_summary_cn && (
+                      {result.uniprot.function && (
                         <div className="mt-3 bg-slate-50 rounded-lg p-3">
-                          <p className="text-sm font-semibold text-slate-700 mb-1">功能描述</p>
+                          <p className="text-sm font-semibold text-slate-700 mb-1">Function Description</p>
+                          <p className="text-sm text-slate-700 leading-relaxed">{result.uniprot.function}</p>
+                        </div>
+                      )}
+                      {!result.uniprot.function && result.uniprot.function_summary_cn && (
+                        <div className="mt-3 bg-slate-50 rounded-lg p-3">
+                          <p className="text-sm font-semibold text-slate-700 mb-1">Function Description</p>
                           <p className="text-sm text-slate-700 leading-relaxed">{result.uniprot.function_summary_cn}</p>
-                          <p className="text-xs text-slate-500 mt-2 italic border-t border-slate-200 pt-2">英文原文：{result.uniprot.function}</p>
                         </div>
                       )}
                       {result.uniprot.features_near_variant && result.uniprot.features_near_variant.length > 0 && (
