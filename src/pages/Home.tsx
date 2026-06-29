@@ -257,12 +257,17 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Dna className="w-8 h-8 text-blue-600" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">GRCh38 变异功能影响分析器</h1>
-            <p className="text-xs text-slate-500">ACMG 证据权重分类 · 整合多数据源</p>
+        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Dna className="w-8 h-8 text-blue-600" />
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">GRCh38 变异功能影响分析器</h1>
+              <p className="text-xs text-slate-500">ACMG 证据权重分类 · 整合多数据源</p>
+            </div>
           </div>
+          <a href="https://github.com/lzr098/variant-impact-website" target="_blank" rel="noopener noreferrer">
+            <img src="/logo.png" alt="K-Hub" className="h-12 w-auto" />
+          </a>
         </div>
       </header>
 
